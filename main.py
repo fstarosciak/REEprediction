@@ -1,13 +1,13 @@
 """
-Główny skrypt projektu REEprediction.
-Przewiduje zmianę ceny akcji spółek powiązanych z metalami ziem rzadkich (REE).
-Dostępne modele: MLP (NumPy), Random Forest, SVM (scikit-learn).
+Main script of the REEprediction project.
+Predicts price changes of stocks related to Rare Earth Elements (REE).
+Available models: MLP (NumPy), Random Forest, SVM (scikit-learn).
 
-Użycie:
+Usage:
   python main.py --ticker REMX --model mlp --epochs 300 --lr 0.01 --hidden 10 5
   python main.py --ticker KGH_WA --model rf --n-estimators 100
   python main.py --ticker AMG_AS --model svm --C 1.0
-  python main.py --ticker REMX   (domyślne: mlp, parametry z config.py)
+  python main.py --ticker REMX   (defaults: mlp, parameters from config.py)
 """
 
 import argparse
@@ -15,7 +15,7 @@ import os
 import sys
 import numpy as np
 
-# Dodaj katalog projektu do ścieżki (umożliwia uruchomienie z dowolnego katalogu)
+# Add project directory to path (allows running from any directory)
 ROOT = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, ROOT)
 
@@ -25,125 +25,125 @@ from models.svm_model import SVMModel
 from train.train import train_model
 from evaluate.metrics import evaluate_model, mae as mae_fn, rmse as rmse_fn, direction_accuracy as dir_acc_fn
 from utils.preprocessing import load_and_preprocess
-from utils.visualization import zapisz_wszystkie_wykresy
+from utils.visualization import save_all_plots
 import config as cfg
 
 
-# Dostępne tickery i ich pliki CSV
-DOSTEPNE_TICKERY = {
+# Available tickers and their CSV files
+AVAILABLE_TICKERS = {
     "REMX":   os.path.join(ROOT, "data", "REMX.csv"),
     "AMG_AS": os.path.join(ROOT, "data", "AMG_AS.csv"),
     "KGH_WA": os.path.join(ROOT, "data", "KGH_WA.csv"),
 }
 
 
-def parsuj_argumenty():
-    """Parsuje argumenty linii poleceń."""
+def parse_arguments():
+    """Parses command-line arguments."""
     parser = argparse.ArgumentParser(
-        description="REEprediction — predykcja cen akcji spółek REE (MLP / RF / SVM)"
+        description="REEprediction — stock price prediction for REE companies (MLP / RF / SVM)"
     )
     parser.add_argument(
         "--ticker",
         type=str,
         default="REMX",
-        choices=list(DOSTEPNE_TICKERY.keys()),
-        help="Instrument giełdowy: REMX, AMG_AS, KGH_WA (domyślnie: REMX)"
+        choices=list(AVAILABLE_TICKERS.keys()),
+        help="Stock instrument: REMX, AMG_AS, KGH_WA (default: REMX)"
     )
-    # ── Wybór modelu ────────────────────────────────────────────────────────
+    # ── Model selection ─────────────────────────────────────────────────────
     parser.add_argument(
         "--model",
         type=str,
         default="mlp",
         choices=["mlp", "rf", "svm"],
-        help="Model do treningu: mlp | rf (Random Forest) | svm (domyślnie: mlp)"
+        help="Model to train: mlp | rf (Random Forest) | svm (default: mlp)"
     )
-    # ── Parametry MLP ───────────────────────────────────────────────────────
+    # ── MLP parameters ──────────────────────────────────────────────────────
     parser.add_argument(
         "--epochs",
         type=int,
         default=cfg.EPOCHS,
-        help=f"[MLP] Liczba epok treningowych (domyślnie: {cfg.EPOCHS})"
+        help=f"[MLP] Number of training epochs (default: {cfg.EPOCHS})"
     )
     parser.add_argument(
         "--lr",
         type=float,
         default=cfg.LEARNING_RATE,
-        help=f"[MLP] Współczynnik uczenia (domyślnie: {cfg.LEARNING_RATE})"
+        help=f"[MLP] Learning rate (default: {cfg.LEARNING_RATE})"
     )
     parser.add_argument(
         "--hidden",
         type=int,
         nargs="+",
         default=cfg.HIDDEN_LAYERS,
-        help=f"[MLP] Rozmiary warstw ukrytych (domyślnie: {cfg.HIDDEN_LAYERS}). "
-             f"Przykład: --hidden 10 5  →  [10, 5]"
+        help=f"[MLP] Hidden layer sizes (default: {cfg.HIDDEN_LAYERS}). "
+             f"Example: --hidden 10 5  →  [10, 5]"
     )
-    # ── Parametry Random Forest ─────────────────────────────────────────────
+    # ── Random Forest parameters ────────────────────────────────────────────
     parser.add_argument(
         "--n-estimators",
         type=int,
         default=100,
-        help="[RF] Liczba drzew w lesie (domyślnie: 100)"
+        help="[RF] Number of trees in the forest (default: 100)"
     )
     parser.add_argument(
         "--max-depth",
         type=int,
         default=None,
-        help="[RF] Maksymalna głębokość drzewa (domyślnie: None = bez limitu)"
+        help="[RF] Maximum tree depth (default: None = no limit)"
     )
-    # ── Parametry SVM ───────────────────────────────────────────────────────
+    # ── SVM parameters ──────────────────────────────────────────────────────
     parser.add_argument(
         "--C",
         type=float,
         default=1.0,
-        help="[SVM] Parametr regularyzacji C (domyślnie: 1.0)"
+        help="[SVM] Regularization parameter C (default: 1.0)"
     )
     parser.add_argument(
         "--epsilon",
         type=float,
         default=0.1,
-        help="[SVM] Epsilon — szerokość tunelu bez kary (domyślnie: 0.1)"
+        help="[SVM] Epsilon — width of the no-penalty tube (default: 0.1)"
     )
     parser.add_argument(
         "--kernel",
         type=str,
         default="rbf",
         choices=["rbf", "linear", "poly"],
-        help="[SVM] Typ jądra (domyślnie: rbf)"
+        help="[SVM] Kernel type (default: rbf)"
     )
-    # ── Inne ────────────────────────────────────────────────────────────────
+    # ── Other ───────────────────────────────────────────────────────────────
     parser.add_argument(
         "--no-plot",
         action="store_true",
         default=False,
-        help="Nie generuj wykresów PNG"
+        help="Do not generate PNG plots"
     )
     return parser.parse_args()
 
 
 def main():
-    args = parsuj_argumenty()
+    args = parse_arguments()
 
     print("=" * 60)
-    print("  REEprediction — Predykcja cen akcji REE")
+    print("  REEprediction — REE stock price prediction")
     print("=" * 60)
     print(f"  Ticker  : {args.ticker}")
     print(f"  Model   : {args.model.upper()}")
 
-    # 1. Wczytaj i przetwórz dane
-    sciezka_csv = DOSTEPNE_TICKERY[args.ticker]
-    if not os.path.exists(sciezka_csv):
-        print(f"BŁĄD: Brak pliku danych: {sciezka_csv}")
-        print("Uruchom najpierw: python data/download_data.py")
+    # 1. Load and preprocess data
+    csv_path = AVAILABLE_TICKERS[args.ticker]
+    if not os.path.exists(csv_path):
+        print(f"ERROR: Data file not found: {csv_path}")
+        print("Run first: python data/download_data.py")
         sys.exit(1)
 
-    print("\nWczytywanie i preprocessing danych...")
-    X_train, X_test, y_train, y_test = load_and_preprocess(sciezka_csv)
-    print(f"  Train: {X_train.shape[0]} próbek  |  Test: {X_test.shape[0]} próbek\n")
+    print("\nLoading and preprocessing data...")
+    X_train, X_test, y_train, y_test = load_and_preprocess(csv_path)
+    print(f"  Train: {X_train.shape[0]} samples  |  Test: {X_test.shape[0]} samples\n")
 
-    historia = None   # tylko MLP generuje historię strat
+    history = None   # only MLP produces a loss history
 
-    # 2. Zainicjuj i wytrenuj model
+    # 2. Initialize and train the model
     if args.model == "mlp":
         print(f"  Hidden  : {args.hidden}")
         print(f"  LR      : {args.lr}")
@@ -154,12 +154,12 @@ def main():
             hidden_layers=args.hidden,
             output_size=cfg.OUTPUT_SIZE
         )
-        print(f"\nModel MLP: {cfg.INPUT_SIZE} → {' → '.join(str(h) for h in args.hidden)} → {cfg.OUTPUT_SIZE}")
-        print(f"Trening ({args.epochs} epok, lr={args.lr})...")
-        historia = train_model(model, X_train, y_train,
-                               epochs=args.epochs, lr=args.lr, verbose=True)
-        print(f"  Końcowa strata MSE (train): {historia[-1]:.6f}\n")
-        metryki = evaluate_model(model, X_test, y_test)
+        print(f"\nMLP model: {cfg.INPUT_SIZE} → {' → '.join(str(h) for h in args.hidden)} → {cfg.OUTPUT_SIZE}")
+        print(f"Training ({args.epochs} epochs, lr={args.lr})...")
+        history = train_model(model, X_train, y_train,
+                              epochs=args.epochs, lr=args.lr, verbose=True)
+        print(f"  Final MSE loss (train): {history[-1]:.6f}\n")
+        metrics = evaluate_model(model, X_test, y_test)
 
     elif args.model == "rf":
         print(f"  n_estimators: {args.n_estimators}")
@@ -168,10 +168,10 @@ def main():
             n_estimators=args.n_estimators,
             max_depth=args.max_depth
         )
-        print(f"\nTrening Random Forest ({args.n_estimators} drzew)...")
+        print(f"\nTraining Random Forest ({args.n_estimators} trees)...")
         model.train(X_train, y_train)
         y_pred = model.predict(X_test)
-        metryki = {
+        metrics = {
             "mae":                mae_fn(y_test, y_pred),
             "mse":                float(np.mean((y_test - y_pred) ** 2)),
             "rmse":               rmse_fn(y_test, y_pred),
@@ -183,36 +183,36 @@ def main():
         print(f"  C       : {args.C}")
         print(f"  epsilon : {args.epsilon}")
         model = SVMModel(kernel=args.kernel, C=args.C, epsilon=args.epsilon)
-        print(f"\nTrening SVM (kernel={args.kernel}, C={args.C})...")
+        print(f"\nTraining SVM (kernel={args.kernel}, C={args.C})...")
         model.train(X_train, y_train)
         y_pred = model.predict(X_test)
-        metryki = {
+        metrics = {
             "mae":                mae_fn(y_test, y_pred),
             "mse":                float(np.mean((y_test - y_pred) ** 2)),
             "rmse":               rmse_fn(y_test, y_pred),
             "direction_accuracy": dir_acc_fn(y_test, y_pred),
         }
 
-    # 3. Wyniki
-    print("Wyniki na zbiorze TESTOWYM:")
-    print(f"  MAE              : {metryki['mae']:.4f}")
-    print(f"  MSE              : {metryki['mse']:.4f}")
-    print(f"  RMSE             : {metryki['rmse']:.4f}")
-    print(f"  Dokładność kier. : {metryki['direction_accuracy']:.1f}%")
+    # 3. Results
+    print("Results on TEST set:")
+    print(f"  MAE              : {metrics['mae']:.4f}")
+    print(f"  MSE              : {metrics['mse']:.4f}")
+    print(f"  RMSE             : {metrics['rmse']:.4f}")
+    print(f"  Direction acc.   : {metrics['direction_accuracy']:.1f}%")
 
-    # 4. Wizualizacje (tylko dla MLP — używają historii strat)
-    if not args.no_plot and args.model == "mlp" and historia is not None:
-        print("\nGenerowanie wykresów...")
-        pliki = zapisz_wszystkie_wykresy(
-            model, X_test, y_test, historia,
+    # 4. Plots (only for MLP — they use the loss history)
+    if not args.no_plot and args.model == "mlp" and history is not None:
+        print("\nGenerating plots...")
+        files = save_all_plots(
+            model, X_test, y_test, history,
             ticker=args.ticker,
             hidden=args.hidden,
             lr=args.lr,
             epochs=args.epochs
         )
-        print(f"  Wykresy zapisane ({len(pliki)} pliki PNG)")
+        print(f"  Plots saved ({len(files)} PNG files)")
 
-    print("\nZakończono.")
+    print("\nDone.")
 
 
 if __name__ == "__main__":

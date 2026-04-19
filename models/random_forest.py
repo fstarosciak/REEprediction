@@ -1,8 +1,8 @@
 """
-Moduł implementujący model Random Forest Regressor.
+Random Forest Regressor model module.
 
-Wrapper wokół sklearn.ensemble.RandomForestRegressor dopasowany do
-interfejsu projektu REEprediction (metody train / predict / get_params).
+Wrapper around sklearn.ensemble.RandomForestRegressor adapted to the
+REEprediction project interface (train / predict / get_params methods).
 """
 
 import numpy as np
@@ -11,66 +11,66 @@ from sklearn.ensemble import RandomForestRegressor
 
 class RandomForestModel:
     """
-    Model Random Forest do regresji zmian cen akcji.
+    Random Forest model for regression of stock price changes.
 
-    Parametry:
-      n_estimators -- liczba drzew w lesie (domyślnie 100)
-      max_depth    -- maksymalna głębokość każdego drzewa (domyślnie None = bez limitu)
-      random_state -- ziarno losowości dla powtarzalności wyników (domyślnie 42)
+    Parameters:
+      n_estimators -- number of trees in the forest (default 100)
+      max_depth    -- maximum depth of each tree (default None = no limit)
+      random_state -- random seed for reproducibility (default 42)
     """
 
     def __init__(self, n_estimators=100, max_depth=None, random_state=42):
-        # Liczba drzew decyzyjnych tworzących las
+        # Number of decision trees in the forest
         self.n_estimators = n_estimators
-        # Maksymalna głębokość drzewa (None oznacza pełny rozwój)
+        # Maximum tree depth (None means full growth)
         self.max_depth = max_depth
-        # Ziarno generatora liczb losowych — gwarantuje powtarzalność
+        # Random generator seed — guarantees reproducibility
         self.random_state = random_state
 
-        # Wewnętrzny model sklearn — inicjalizowany przy pierwszym treningu
+        # Internal sklearn model — initialized on first training
         self._model = RandomForestRegressor(
             n_estimators=self.n_estimators,
             max_depth=self.max_depth,
             random_state=self.random_state,
-            n_jobs=-1,          # wykorzystaj wszystkie rdzenie procesora
+            n_jobs=-1,          # use all CPU cores
         )
 
     def train(self, X_train, y_train):
         """
-        Trenuje model Random Forest na zbiorze treningowym.
+        Trains the Random Forest model on the training set.
 
-        Argumenty:
-          X_train -- macierz cech treningowych (numpy array, shape [n, 5])
-          y_train -- wektor wartości docelowych (numpy array, shape [n, 1] lub [n])
+        Arguments:
+          X_train -- training feature matrix (numpy array, shape [n, 5])
+          y_train -- target vector (numpy array, shape [n, 1] or [n])
         """
-        # sklearn oczekuje wektora 1D — spłaszczamy jeśli trzeba
+        # sklearn expects a 1D vector — flatten if needed
         y_flat = y_train.ravel()
         self._model.fit(X_train, y_flat)
 
     def predict(self, X_test):
         """
-        Generuje predykcje dla zbioru testowego.
+        Generates predictions for the test set.
 
-        Argumenty:
-          X_test -- macierz cech testowych (numpy array, shape [m, 5])
+        Arguments:
+          X_test -- test feature matrix (numpy array, shape [m, 5])
 
-        Zwraca:
-          y_pred -- wektor predykcji (numpy array, shape [m, 1])
+        Returns:
+          y_pred -- prediction vector (numpy array, shape [m, 1])
         """
-        # Zwracamy kolumnowy wektor, żeby zachować zgodność z resztą projektu
+        # Return a column vector for compatibility with the rest of the project
         return self._model.predict(X_test).reshape(-1, 1)
 
     def forward_propagation(self, X):
         """
-        Alias metody predict — zgodność z interfejsem MLP używanym w evaluate_model().
+        Alias for predict — compatibility with the MLP interface used in evaluate_model().
         """
         return self.predict(X)
 
     def get_params(self):
         """
-        Zwraca słownik z parametrami modelu.
+        Returns a dictionary of model parameters.
 
-        Przydatne do logowania wyników i porównywania konfiguracji.
+        Useful for logging results and comparing configurations.
         """
         return {
             "model":        "RandomForest",

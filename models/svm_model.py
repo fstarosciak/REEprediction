@@ -1,8 +1,8 @@
 """
-Moduł implementujący model Support Vector Regression (SVR).
+Support Vector Regression (SVR) model module.
 
-Wrapper wokół sklearn.svm.SVR dopasowany do interfejsu projektu
-REEprediction (metody train / predict / get_params).
+Wrapper around sklearn.svm.SVR adapted to the REEprediction project
+interface (train / predict / get_params methods).
 """
 
 import numpy as np
@@ -11,27 +11,27 @@ from sklearn.svm import SVR
 
 class SVMModel:
     """
-    Model Support Vector Regression do predykcji zmian cen akcji.
+    Support Vector Regression model for predicting stock price changes.
 
-    SVR szuka hiperpłaszczyzny, która mieści jak najwięcej punktów
-    w tunelu szerokości epsilon, jednocześnie minimalizując błędy
-    dla punktów poza tunelem (sterowane parametrem C).
+    SVR searches for a hyperplane that fits as many points as possible
+    within a tube of width epsilon, while minimizing errors for points
+    outside the tube (controlled by the C parameter).
 
-    Parametry:
-      kernel  -- typ jądra: 'rbf', 'linear', 'poly' itp. (domyślnie 'rbf')
-      C       -- parametr regularyzacji — większe C = mniej regularyzacji (domyślnie 1.0)
-      epsilon -- szerokość tunelu bez kary (domyślnie 0.1)
+    Parameters:
+      kernel  -- kernel type: 'rbf', 'linear', 'poly', etc. (default 'rbf')
+      C       -- regularization parameter — larger C = less regularization (default 1.0)
+      epsilon -- width of the no-penalty tube (default 0.1)
     """
 
     def __init__(self, kernel="rbf", C=1.0, epsilon=0.1):
-        # Typ funkcji jądra (kernel trick) — 'rbf' sprawdza się dobrze dla danych nieliniowych
+        # Kernel function type (kernel trick) — 'rbf' works well for nonlinear data
         self.kernel = kernel
-        # Parametr C kontroluje kompromis między gładkością a dopasowaniem do danych
+        # C parameter controls the trade-off between smoothness and data fit
         self.C = C
-        # Epsilon — strefa tolerancji, gdzie nie naliczamy kary za błąd
+        # Epsilon — tolerance zone where no penalty is applied
         self.epsilon = epsilon
 
-        # Wewnętrzny model sklearn
+        # Internal sklearn model
         self._model = SVR(
             kernel=self.kernel,
             C=self.C,
@@ -40,40 +40,40 @@ class SVMModel:
 
     def train(self, X_train, y_train):
         """
-        Trenuje model SVR na zbiorze treningowym.
+        Trains the SVR model on the training set.
 
-        Argumenty:
-          X_train -- macierz cech treningowych (numpy array, shape [n, 5])
-          y_train -- wektor wartości docelowych (numpy array, shape [n, 1] lub [n])
+        Arguments:
+          X_train -- training feature matrix (numpy array, shape [n, 5])
+          y_train -- target vector (numpy array, shape [n, 1] or [n])
         """
-        # sklearn SVR oczekuje wektora 1D — spłaszczamy jeśli trzeba
+        # sklearn SVR expects a 1D vector — flatten if needed
         y_flat = y_train.ravel()
         self._model.fit(X_train, y_flat)
 
     def predict(self, X_test):
         """
-        Generuje predykcje dla zbioru testowego.
+        Generates predictions for the test set.
 
-        Argumenty:
-          X_test -- macierz cech testowych (numpy array, shape [m, 5])
+        Arguments:
+          X_test -- test feature matrix (numpy array, shape [m, 5])
 
-        Zwraca:
-          y_pred -- wektor predykcji (numpy array, shape [m, 1])
+        Returns:
+          y_pred -- prediction vector (numpy array, shape [m, 1])
         """
-        # Zwracamy kolumnowy wektor zgodny z resztą projektu
+        # Return a column vector compatible with the rest of the project
         return self._model.predict(X_test).reshape(-1, 1)
 
     def forward_propagation(self, X):
         """
-        Alias metody predict — zgodność z interfejsem MLP używanym w evaluate_model().
+        Alias for predict — compatibility with the MLP interface used in evaluate_model().
         """
         return self.predict(X)
 
     def get_params(self):
         """
-        Zwraca słownik z parametrami modelu.
+        Returns a dictionary of model parameters.
 
-        Przydatne do logowania wyników i porównywania konfiguracji.
+        Useful for logging results and comparing configurations.
         """
         return {
             "model":   "SVM",
