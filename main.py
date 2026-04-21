@@ -1,21 +1,8 @@
-"""
-Main script of the REEprediction project.
-Predicts price changes of stocks related to Rare Earth Elements (REE).
-Available models: MLP (NumPy), Random Forest, SVM (scikit-learn).
-
-Usage:
-  python main.py --ticker REMX --model mlp --epochs 300 --lr 0.01 --hidden 10 5
-  python main.py --ticker KGH_WA --model rf --n-estimators 100
-  python main.py --ticker AMG_AS --model svm --C 1.0
-  python main.py --ticker REMX   (defaults: mlp, parameters from config.py)
-"""
-
 import argparse
 import os
 import sys
 import numpy as np
 
-# Add project directory to path (allows running from any directory)
 ROOT = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, ROOT)
 
@@ -29,7 +16,6 @@ from utils.visualization import save_all_plots
 import config as cfg
 
 
-# Available tickers and their CSV files
 AVAILABLE_TICKERS = {
     "REMX":   os.path.join(ROOT, "data", "REMX.csv"),
     "AMG_AS": os.path.join(ROOT, "data", "AMG_AS.csv"),
@@ -38,9 +24,8 @@ AVAILABLE_TICKERS = {
 
 
 def parse_arguments():
-    """Parses command-line arguments."""
     parser = argparse.ArgumentParser(
-        description="REEprediction — stock price prediction for REE companies (MLP / RF / SVM)"
+        description="REEprediction - stock price prediction for REE companies (MLP / RF / SVM)"
     )
     parser.add_argument(
         "--ticker",
@@ -49,15 +34,13 @@ def parse_arguments():
         choices=list(AVAILABLE_TICKERS.keys()),
         help="Stock instrument: REMX, AMG_AS, KGH_WA (default: REMX)"
     )
-    # ── Model selection ─────────────────────────────────────────────────────
     parser.add_argument(
         "--model",
         type=str,
         default="mlp",
         choices=["mlp", "rf", "svm"],
-        help="Model to train: mlp | rf (Random Forest) | svm (default: mlp)"
+        help="Model to train: mlp | rf | svm (default: mlp)"
     )
-    # ── MLP parameters ──────────────────────────────────────────────────────
     parser.add_argument(
         "--epochs",
         type=int,
@@ -75,10 +58,8 @@ def parse_arguments():
         type=int,
         nargs="+",
         default=cfg.HIDDEN_LAYERS,
-        help=f"[MLP] Hidden layer sizes (default: {cfg.HIDDEN_LAYERS}). "
-             f"Example: --hidden 10 5  →  [10, 5]"
+        help=f"[MLP] Hidden layer sizes (default: {cfg.HIDDEN_LAYERS})"
     )
-    # ── Random Forest parameters ────────────────────────────────────────────
     parser.add_argument(
         "--n-estimators",
         type=int,
@@ -89,9 +70,8 @@ def parse_arguments():
         "--max-depth",
         type=int,
         default=None,
-        help="[RF] Maximum tree depth (default: None = no limit)"
+        help="[RF] Maximum tree depth (default: None)"
     )
-    # ── SVM parameters ──────────────────────────────────────────────────────
     parser.add_argument(
         "--C",
         type=float,
@@ -102,7 +82,7 @@ def parse_arguments():
         "--epsilon",
         type=float,
         default=0.1,
-        help="[SVM] Epsilon — width of the no-penalty tube (default: 0.1)"
+        help="[SVM] Epsilon (default: 0.1)"
     )
     parser.add_argument(
         "--kernel",
@@ -111,7 +91,6 @@ def parse_arguments():
         choices=["rbf", "linear", "poly"],
         help="[SVM] Kernel type (default: rbf)"
     )
-    # ── Other ───────────────────────────────────────────────────────────────
     parser.add_argument(
         "--no-plot",
         action="store_true",
@@ -125,12 +104,11 @@ def main():
     args = parse_arguments()
 
     print("=" * 60)
-    print("  REEprediction — REE stock price prediction")
+    print("  REEprediction - REE stock price prediction")
     print("=" * 60)
     print(f"  Ticker  : {args.ticker}")
     print(f"  Model   : {args.model.upper()}")
 
-    # 1. Load and preprocess data
     csv_path = AVAILABLE_TICKERS[args.ticker]
     if not os.path.exists(csv_path):
         print(f"ERROR: Data file not found: {csv_path}")
@@ -141,9 +119,8 @@ def main():
     X_train, X_test, y_train, y_test = load_and_preprocess(csv_path)
     print(f"  Train: {X_train.shape[0]} samples  |  Test: {X_test.shape[0]} samples\n")
 
-    history = None   # only MLP produces a loss history
+    history = None
 
-    # 2. Initialize and train the model
     if args.model == "mlp":
         print(f"  Hidden  : {args.hidden}")
         print(f"  LR      : {args.lr}")
@@ -154,7 +131,7 @@ def main():
             hidden_layers=args.hidden,
             output_size=cfg.OUTPUT_SIZE
         )
-        print(f"\nMLP model: {cfg.INPUT_SIZE} → {' → '.join(str(h) for h in args.hidden)} → {cfg.OUTPUT_SIZE}")
+        print(f"\nMLP model: {cfg.INPUT_SIZE} -> {' -> '.join(str(h) for h in args.hidden)} -> {cfg.OUTPUT_SIZE}")
         print(f"Training ({args.epochs} epochs, lr={args.lr})...")
         history = train_model(model, X_train, y_train,
                               epochs=args.epochs, lr=args.lr, verbose=True)
@@ -193,14 +170,12 @@ def main():
             "direction_accuracy": dir_acc_fn(y_test, y_pred),
         }
 
-    # 3. Results
     print("Results on TEST set:")
     print(f"  MAE              : {metrics['mae']:.4f}")
     print(f"  MSE              : {metrics['mse']:.4f}")
     print(f"  RMSE             : {metrics['rmse']:.4f}")
     print(f"  Direction acc.   : {metrics['direction_accuracy']:.1f}%")
 
-    # 4. Plots (only for MLP — they use the loss history)
     if not args.no_plot and args.model == "mlp" and history is not None:
         print("\nGenerating plots...")
         files = save_all_plots(

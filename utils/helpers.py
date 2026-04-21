@@ -3,11 +3,10 @@ import matplotlib
 matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
 def generate_dummy_data(samples=100):
-    X = np.random.rand(samples, 5)  # 5 features
+    X = np.random.rand(samples, 5)
     y = X.sum(axis=1, keepdims=True) + np.random.randn(samples,1)*0.1
     return X, y
 
-# Ai generated ploting
 def plot_predictions(y_true, y_pred):
     y_true = y_true.flatten()
     y_pred = y_pred.flatten()
