@@ -1,27 +1,12 @@
-"""
-Comparison of MLP, Random Forest and SVM models on REE data.
-
-For each of the 3 instruments (REMX, AMG_AS, KGH_WA) the following are tested:
-  - MLP         : hidden=[10], lr=0.01, epochs=300
-  - RandomForest: n_estimators in [50, 100, 200]
-  - SVM (SVR)   : kernel='rbf', C in [0.1, 1.0, 10.0]
-
-Results:
-  - Saved to results/comparison_results.csv
-  - Comparison table in the console
-  - Grouped bar chart of RMSE → results/plots/model_comparison.png
-"""
-
 import sys
 import os
 import time
 import numpy as np
 import pandas as pd
 import matplotlib
-matplotlib.use("Agg")           # headless backend (no GUI window)
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-# Add the project root to the import path
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 
@@ -32,7 +17,6 @@ from utils.preprocessing import load_and_preprocess
 from models.random_forest import RandomForestModel
 from models.svm_model import SVMModel
 
-# ── Configuration ────────────────────────────────────────────────────────────
 
 TICKERS = {
     "REMX":   os.path.join(ROOT, "data", "REMX.csv"),
@@ -40,25 +24,20 @@ TICKERS = {
     "KGH_WA": os.path.join(ROOT, "data", "KGH_WA.csv"),
 }
 
-# Best MLP configuration from previous experiments
 MLP_HIDDEN  = [10]
 MLP_LR      = 0.01
 MLP_EPOCHS  = 300
 INPUT_SIZE  = 5
 OUTPUT_SIZE = 1
 
-# Parameter grid for RF and SVM
 RF_N_ESTIMATORS = [50, 100, 200]
 SVM_C_VALUES    = [0.1, 1.0, 10.0]
 
-# Output files
 RESULTS_CSV = os.path.join(ROOT, "results", "comparison_results.csv")
 PLOT_PNG    = os.path.join(ROOT, "results", "plots", "model_comparison.png")
 
-# ── Helpers ──────────────────────────────────────────────────────────────────
 
 def evaluate_sklearn(model_obj, X_test, y_test):
-    """Evaluates a model with a predict() interface (RF / SVM)."""
     y_pred = model_obj.predict(X_test)
     return {
         "mae":                mae_fn(y_test, y_pred),
@@ -68,7 +47,6 @@ def evaluate_sklearn(model_obj, X_test, y_test):
 
 
 def train_mlp(X_train, y_train, X_test, y_test):
-    """Trains MLP with fixed parameters and returns metrics plus time."""
     np.random.seed(42)
     model = MLP(input_size=INPUT_SIZE, hidden_layers=MLP_HIDDEN, output_size=OUTPUT_SIZE)
     t0 = time.time()
@@ -79,7 +57,6 @@ def train_mlp(X_train, y_train, X_test, y_test):
 
 
 def train_rf(X_train, y_train, X_test, y_test, n_estimators):
-    """Trains Random Forest with the given number of trees and returns metrics."""
     model = RandomForestModel(n_estimators=n_estimators)
     t0 = time.time()
     model.train(X_train, y_train)
@@ -89,7 +66,6 @@ def train_rf(X_train, y_train, X_test, y_test, n_estimators):
 
 
 def train_svm(X_train, y_train, X_test, y_test, C):
-    """Trains SVR with the given C parameter and returns metrics."""
     model = SVMModel(kernel="rbf", C=C)
     t0 = time.time()
     model.train(X_train, y_train)
@@ -98,10 +74,7 @@ def train_svm(X_train, y_train, X_test, y_test, C):
     return metrics, elapsed
 
 
-# ── Console table ────────────────────────────────────────────────────────────
-
 def print_table(rows):
-    """Prints a readable comparison table in the console."""
     width = 100
     print("\n" + "=" * width)
     print(f"{'TICKER':<10} {'MODEL':<15} {'PARAMETERS':<22} "
@@ -121,19 +94,12 @@ def print_table(rows):
     print("=" * width)
 
 
-# ── Comparison plot ──────────────────────────────────────────────────────────
-
 def draw_plot(best_rmse, tickers, models):
-    """
-    Creates a grouped bar chart of RMSE: 3 groups (tickers) × 3 bars (models).
-
-    best_rmse -- dict {ticker: {model: rmse_value}}
-    """
     os.makedirs(os.path.dirname(PLOT_PNG), exist_ok=True)
 
     x      = np.arange(len(tickers))
     width  = 0.25
-    colors = ["#4C72B0", "#DD8452", "#55A868"]   # blue, orange, green
+    colors = ["#4C72B0", "#DD8452", "#55A868"]
 
     fig, ax = plt.subplots(figsize=(10, 6))
 
@@ -141,7 +107,6 @@ def draw_plot(best_rmse, tickers, models):
         values = [best_rmse[t][model_name] for t in tickers]
         bars = ax.bar(x + i * width, values, width,
                       label=model_name, color=colors[i], alpha=0.85, edgecolor="white")
-        # Value labels above bars
         for bar, val in zip(bars, values):
             ax.text(bar.get_x() + bar.get_width() / 2,
                     bar.get_height() + 0.002,
@@ -149,7 +114,7 @@ def draw_plot(best_rmse, tickers, models):
 
     ax.set_xlabel("Stock instrument", fontsize=12)
     ax.set_ylabel("RMSE (best configuration)", fontsize=12)
-    ax.set_title("Model comparison — RMSE on test set\n"
+    ax.set_title("Model comparison - RMSE on test set\n"
                  "(MLP vs Random Forest vs SVM)", fontsize=13, fontweight="bold")
     ax.set_xticks(x + width)
     ax.set_xticklabels(tickers, fontsize=11)
@@ -162,24 +127,20 @@ def draw_plot(best_rmse, tickers, models):
     print(f"\nPlot saved: {PLOT_PNG}")
 
 
-# ── Main function ────────────────────────────────────────────────────────────
-
 def compare_models():
     os.makedirs(os.path.dirname(RESULTS_CSV), exist_ok=True)
 
-    all_rows = []   # all results for CSV
-    # best RMSE for each (ticker, model) — needed for the plot
+    all_rows = []
     best_rmse = {t: {} for t in TICKERS}
 
     for ticker, csv_path in TICKERS.items():
-        print(f"\n{'━' * 70}")
+        print(f"\n{'=' * 70}")
         print(f"  Instrument: {ticker}")
-        print(f"{'━' * 70}")
+        print(f"{'=' * 70}")
 
         X_train, X_test, y_train, y_test = load_and_preprocess(csv_path)
         print(f"  Train: {X_train.shape[0]} samples | Test: {X_test.shape[0]} samples")
 
-        # ── MLP ────────────────────────────────────────────────────────────
         print(f"\n  [MLP] hidden={MLP_HIDDEN}, lr={MLP_LR}, epochs={MLP_EPOCHS} ...", end=" ", flush=True)
         metrics, elapsed = train_mlp(X_train, y_train, X_test, y_test)
         print(f"RMSE={metrics['rmse']:.4f}  Dir={metrics['direction_accuracy']:.1f}%")
@@ -196,7 +157,6 @@ def compare_models():
         all_rows.append(mlp_row)
         best_rmse[ticker]["MLP"] = metrics["rmse"]
 
-        # ── Random Forest ──────────────────────────────────────────────────
         rf_rmse_min = float("inf")
         for n in RF_N_ESTIMATORS:
             print(f"  [RF]  n_estimators={n:<3} ...", end=" ", flush=True)
@@ -217,7 +177,6 @@ def compare_models():
 
         best_rmse[ticker]["RandomForest"] = rf_rmse_min
 
-        # ── SVM ────────────────────────────────────────────────────────────
         svm_rmse_min = float("inf")
         for c in SVM_C_VALUES:
             print(f"  [SVM] C={c:<5} ...", end=" ", flush=True)
@@ -238,24 +197,20 @@ def compare_models():
 
         best_rmse[ticker]["SVM"] = svm_rmse_min
 
-    # ── Save to CSV ───────────────────────────────────────────────────────
     df_results = pd.DataFrame(all_rows)
     df_results.to_csv(RESULTS_CSV, index=False, encoding="utf-8")
     print(f"\nResults saved: {RESULTS_CSV}")
 
-    # ── Console table ─────────────────────────────────────────────────────
     print_table(all_rows)
 
-    # ── Best RMSE summary ─────────────────────────────────────────────────
     print("\n" + "=" * 55)
-    print("  SUMMARY — Best RMSE per instrument/model")
+    print("  SUMMARY - Best RMSE per instrument/model")
     print("=" * 55)
     for ticker in TICKERS:
         print(f"\n  {ticker}:")
         for model_name, rmse_val in best_rmse[ticker].items():
             print(f"    {model_name:<15} RMSE = {rmse_val:.4f}")
 
-    # ── Plot ──────────────────────────────────────────────────────────────
     draw_plot(best_rmse, list(TICKERS.keys()), ["MLP", "RandomForest", "SVM"])
 
     return all_rows, best_rmse

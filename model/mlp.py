@@ -3,12 +3,10 @@ from model.layers import relu, relu_derivative
 
 class MLP:
     def __init__(self, input_size, hidden_layers, output_size):
-        # hidden_layers
         self.layers = []
         self.biases = []
         self.activations = []
 
-        # generating random stuff for nodes
         prev_size = input_size
         for h in hidden_layers:
             self.layers.append(np.random.randn(prev_size, h))
@@ -16,15 +14,13 @@ class MLP:
             self.activations.append(relu)
             prev_size = h
 
-        # input layer
         self.layers.append(np.random.randn(prev_size, output_size))
         self.biases.append(np.zeros((1, output_size)))
-        self.activations.append(lambda x: x) # linear lambda for forward propagation matrix conversions
+        self.activations.append(lambda x: x)
     def forward_propagation(self, X):
         self.z = []
         self.a = [X]
         for W, b, act in zip(self.layers, self.biases, self.activations):
-            # multiplication of matrices
             z = self.a[-1] @ W + b
             self.z.append(z)
             self.a.append(act(z))
@@ -34,7 +30,6 @@ class MLP:
         grads_W = [np.zeros_like(W) for W in self.layers]
         grads_b = [np.zeros_like(b) for b in self.biases]
 
-        # gradient
         delta = 2*(self.a[-1] - y_true)/m
         for i in reversed(range(len(self.layers))):
             grads_W[i] = self.a[i].T @ delta
