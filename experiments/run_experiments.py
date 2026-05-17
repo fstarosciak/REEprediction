@@ -24,7 +24,7 @@ HIDDEN_SIZES   = [[5], [10], [10, 5]]
 LEARNING_RATES = [0.01, 0.001]
 EPOCHS_LIST    = [100, 300, 500]
 
-INPUT_SIZE  = 5
+INPUT_SIZE  = 7
 OUTPUT_SIZE = 1
 
 RESULTS_CSV = os.path.join(ROOT, "results", "results.csv")

@@ -3,7 +3,7 @@ import pandas as pd
 import os
 
 
-FEATURE_COLUMNS = ["Open", "High", "Low", "Close", "Volume"]
+FEATURE_COLUMNS = ["Open", "High", "Low", "Close", "Volume", "Close_mean_5", "Close_q75_5"]
 
 
 def load_csv(path):
@@ -12,7 +12,11 @@ def load_csv(path):
     df = pd.read_csv(path, index_col="Date", parse_dates=True)
     return df
 
-
+def add_historical_features(df, window=5):
+    df = df.copy()
+    df["Close_mean_5"] = df["Close"].rolling(window).mean()
+    df["Close_q75_5"] = df["Close"].rolling(window).quantile(0.75)
+    return df
 def compute_target(df):
     changes = df["Close"].diff(1).shift(-1)
     df = df.copy()
@@ -46,7 +50,9 @@ def chronological_split(X, y, train_ratio=0.8):
 
 def load_and_preprocess(path, train_ratio=0.8):
     df = load_csv(path)
+    df = add_historical_features(df)
     df = compute_target(df)
+    df = df.dropna()
 
     X = df[FEATURE_COLUMNS].values.astype(np.float64)
     y = df["price_change"].values.astype(np.float64).reshape(-1, 1)

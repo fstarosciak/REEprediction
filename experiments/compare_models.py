@@ -16,6 +16,7 @@ from evaluate.metrics import evaluate_model, rmse as rmse_fn, mae as mae_fn, dir
 from utils.preprocessing import load_and_preprocess
 from models.random_forest import RandomForestModel
 from models.svm_model import SVMModel
+from models.hist_gradient_boosting import HistGradientBoostingModel
 
 
 TICKERS = {
@@ -24,14 +25,15 @@ TICKERS = {
     "KGH_WA": os.path.join(ROOT, "data", "KGH_WA.csv"),
 }
 
-MLP_HIDDEN  = [10]
-MLP_LR      = 0.01
+MLP_HIDDEN  = [25]
+MLP_LR      = 0.0001
 MLP_EPOCHS  = 300
-INPUT_SIZE  = 5
+INPUT_SIZE  = 7
 OUTPUT_SIZE = 1
 
 RF_N_ESTIMATORS = [50, 100, 200]
 SVM_C_VALUES    = [0.1, 1.0, 10.0]
+HGB_MAX_ITER = [100, 200, 300]
 
 RESULTS_CSV = os.path.join(ROOT, "results", "comparison_results.csv")
 PLOT_PNG    = os.path.join(ROOT, "results", "plots", "model_comparison.png")
@@ -73,7 +75,15 @@ def train_svm(X_train, y_train, X_test, y_test, C):
     metrics = evaluate_sklearn(model, X_test, y_test)
     return metrics, elapsed
 
+def train_hgb(X_train, y_train, X_test, y_test, max_iter):
+    model = HistGradientBoostingModel(max_iter=max_iter)
 
+    t0 = time.time()
+    model.train(X_train, y_train)
+    elapsed = time.time() - t0
+
+    metrics = evaluate_sklearn(model, X_test, y_test)
+    return metrics, elapsed
 def print_table(rows):
     width = 100
     print("\n" + "=" * width)
@@ -115,7 +125,7 @@ def draw_plot(best_rmse, tickers, models):
     ax.set_xlabel("Stock instrument", fontsize=12)
     ax.set_ylabel("RMSE (best configuration)", fontsize=12)
     ax.set_title("Model comparison - RMSE on test set\n"
-                 "(MLP vs Random Forest vs SVM)", fontsize=13, fontweight="bold")
+                 "(MLP vs Random Forest vs SVM vs HGB)", fontsize=13, fontweight="bold")
     ax.set_xticks(x + width)
     ax.set_xticklabels(tickers, fontsize=11)
     ax.legend(fontsize=10)
@@ -196,6 +206,26 @@ def compare_models():
                 svm_rmse_min = metrics["rmse"]
 
         best_rmse[ticker]["SVM"] = svm_rmse_min
+
+        hgb_rmse_min = float("inf")
+        for it in HGB_MAX_ITER:
+            print(f"  [HGB] max_iter={it:<3} ...", end=" ", flush=True)
+            metrics, elapsed = train_hgb(X_train, y_train, X_test, y_test, it)
+            print(f"RMSE={metrics['rmse']:.4f}  Dir={metrics['direction_accuracy']:.1f}%")
+
+            all_rows.append({
+                "ticker": ticker,
+                "model": "HistGradientBoosting",
+                "parameters": f"max_iter={it}",
+                "mae": metrics["mae"],
+                "rmse": metrics["rmse"],
+                "direction_accuracy": metrics["direction_accuracy"],
+                "time_s": round(elapsed, 3),
+            })
+
+            hgb_rmse_min = min(hgb_rmse_min, metrics["rmse"])
+
+        best_rmse[ticker]["HistGradientBoosting"] = hgb_rmse_min
 
     df_results = pd.DataFrame(all_rows)
     df_results.to_csv(RESULTS_CSV, index=False, encoding="utf-8")
